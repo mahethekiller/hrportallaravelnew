@@ -26,9 +26,9 @@ class MigrateLegacyData extends Command
         ]);
 
         $this->info("Fetching tables from legacy database...");
-        
+
         $tables = \Illuminate\Support\Facades\DB::connection('legacy_mysql')->select('SHOW TABLES');
-        
+
         foreach ($tables as $tableRow) {
             $tableName = array_values((array)$tableRow)[0];
             if ($tableName == 'ci_sessions') continue;
@@ -41,7 +41,7 @@ class MigrateLegacyData extends Command
             }
 
             $this->info("Cloning table: {$tableName} -> {$newTableName}");
-            
+
             try {
                 \Illuminate\Support\Facades\DB::connection('mysql')->statement("CREATE TABLE {$newTableName} LIKE hrsale.{$tableName}");
                 \Illuminate\Support\Facades\DB::connection('mysql')->statement("INSERT INTO {$newTableName} SELECT * FROM hrsale.{$tableName}");
