@@ -249,10 +249,6 @@
                     @endif
                 }
 
-                let reason = cleanHTML(r.reason);
-                let managerComment = cleanHTML(r.manager_comment);
-                let hrComment = cleanHTML(r.hr_comment);
-
                 html += `
                 <div class="glass-card mb-3 p-4" style="transition: all 0.3s ease;">
                     <div class="row align-items-center">
@@ -293,15 +289,15 @@
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="small fw-bold text-muted d-block mb-1">Reason</label>
-                                    <div class="small mb-0 text-white-50">${reason || 'No reason provided'}</div>
+                                    <div class="small mb-0 text-white-50">${r.reason || 'No reason provided'}</div>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="small fw-bold text-muted d-block mb-1">Manager Comment</label>
-                                    <div class="small mb-0 text-white-50">${managerComment || '-'}</div>
+                                    <div class="small mb-0 text-white-50">${r.manager_comment || '-'}</div>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="small fw-bold text-muted d-block mb-1">HR Comment</label>
-                                    <div class="small mb-0 text-white-50">${hrComment || '-'}</div>
+                                    <div class="small mb-0 text-white-50">${r.hr_comment || '-'}</div>
                                 </div>
                             </div>
                         </div>
@@ -352,26 +348,6 @@
 
     function toggleDetails(id) {
         $(`#details_${id}`).toggleClass('d-none');
-    }
-
-    function cleanHTML(str) {
-        if (!str) return '';
-        
-        // 1. Unescape backslashes and quotes from legacay double-escaping
-        let cleaned = str.replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\\\/g, '\\');
-        cleaned = cleaned.replace(/\\&quot;/g, '"').replace(/&quot;/g, '"');
-
-        // 2. Deep clean: If the string still has escaped entities like &lt;p&gt;, decode them
-        // We use a temporary div to decode HTML entities
-        const doc = new DOMParser().parseFromString(cleaned, 'text/html');
-        let decoded = doc.documentElement.textContent;
-        
-        // If the decoded content lacks tags but the original had them as literal text,
-        // we might prefer the cleaned version to be rendered as HTML.
-        // Actually, if we're putting this into .innerHTML, we want the tags.
-        
-        // Based on common "mangled" output, the slashes are the biggest culprit.
-        return cleaned;
     }
 
     function openSubmitModal() {

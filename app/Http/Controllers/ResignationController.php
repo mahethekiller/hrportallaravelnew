@@ -83,6 +83,21 @@ class ResignationController extends Controller
 
         $paginated = $query->orderBy('employee_resignations.created_at', 'desc')->paginate(10);
 
+        // Clean HTML in PHP before sending to frontend
+        $paginated->getCollection()->transform(function ($item) {
+            $fields = ['reason', 'manager_comment', 'hr_comment'];
+            foreach ($fields as $field) {
+                if ($item->{$field}) {
+                    // Stripslashes handles the \" and \\ issues
+                    $cleaned = stripslashes($item->{$field});
+                    // Decode entities (double-pass for extreme cases)
+                    $cleaned = htmlspecialchars_decode($cleaned, ENT_QUOTES);
+                    $item->{$field} = htmlspecialchars_decode($cleaned, ENT_QUOTES);
+                }
+            }
+            return $item;
+        });
+
         return response()->json([
             'data' => $paginated->items(),
             'current_page' => $paginated->currentPage(),
