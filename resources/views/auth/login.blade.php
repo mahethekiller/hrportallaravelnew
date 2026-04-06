@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -113,7 +113,7 @@
             width: 18px;
             height: 18px;
         }
-        
+
         .form-check-input:checked {
             background-color: var(--primary);
             border-color: var(--primary);
@@ -203,12 +203,12 @@
 
     <div class="container d-flex justify-content-center p-3 p-md-0">
         <div class="glass-card p-4 p-md-5">
-            
+
             <div class="text-center mb-4">
                 <div class="brand-logo">
                     <i class="bi bi-fingerprint"></i>
                 </div>
-                <h4 class="fw-bold mb-1">Welcome Back</h4>
+                <h4 class="fw-bold mb-1">{{ env('APP_NAME') }}</h4>
                 <p class="text-muted small" style="color: #94a3b8 !important;">Enter your credentials to access the portal</p>
             </div>
 
@@ -273,7 +273,7 @@
                     </button>
                 </div>
             </form>
-            
+
         </div>
     </div>
 

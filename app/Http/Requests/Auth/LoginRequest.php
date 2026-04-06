@@ -50,6 +50,17 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // Restrict login to Active (1) and Resigned (0) statuses only
+        $user = Auth::user();
+        if (!in_array($user->is_active, [0, 1])) {
+            Auth::logout();
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'employee_id' => 'Your account is restricted. Only Active or Resigned employees can access the portal.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

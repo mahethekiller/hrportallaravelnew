@@ -57,9 +57,27 @@ class EmployeeController extends Controller
                 $query->where('employees.is_active', $request->filter_status);
             }
 
-            $data = $query->get();
-
-            return DataTables::of($data)
+            return DataTables::of($query)
+                ->filterColumn('name_column', function($query, $keyword) {
+                    $query->where(function($q) use ($keyword) {
+                        $q->where('employees.first_name', 'like', "%{$keyword}%")
+                          ->orWhere('employees.last_name', 'like', "%{$keyword}%")
+                          ->orWhere('employees.employee_id', 'like', "%{$keyword}%")
+                          ->orWhere(DB::raw("CONCAT(employees.first_name, ' ', employees.last_name)"), 'like', "%{$keyword}%");
+                    });
+                })
+                ->filterColumn('organization', function($query, $keyword) {
+                    $query->where(function($q) use ($keyword) {
+                        $q->where('companies.name', 'like', "%{$keyword}%")
+                          ->orWhere('departments.department_name', 'like', "%{$keyword}%");
+                    });
+                })
+                ->filterColumn('manager', function($query, $keyword) {
+                    $query->where(DB::raw("CONCAT(managers.first_name, ' ', managers.last_name)"), 'like', "%{$keyword}%");
+                })
+                ->orderColumn('name_column', 'employees.first_name $1')
+                ->orderColumn('organization', 'companies.name $1')
+                ->orderColumn('manager', 'managers.first_name $1')
                 ->addIndexColumn()
                 ->addColumn('avatar', function($row) {
                     $img = $row->profile_picture ? asset('storage/profiles/' . $row->profile_picture) : 'https://ui-avatars.com/api/?name=' . urlencode($row->first_name) . '&background=random';
@@ -72,8 +90,19 @@ class EmployeeController extends Controller
                     return '<div class="small"><strong>' . ($row->company_name ?? 'N/A') . '</strong><br>' . ($row->department_name ?? 'Dept.') . '</div>';
                 })
                 ->addColumn('status', function($row) {
-                    $class = $row->is_active ? 'success' : 'danger';
-                    $text = $row->is_active ? 'Active' : 'Inactive';
+                    $statuses = [
+                        1 => ['label' => 'Active', 'class' => 'success'],
+                        2 => ['label' => 'Terminated', 'class' => 'danger'],
+                        3 => ['label' => 'Left', 'class' => 'secondary'],
+                        4 => ['label' => 'Abscond', 'class' => 'danger'],
+                        5 => ['label' => 'Disable', 'class' => 'dark'],
+                        0 => ['label' => 'Resigned', 'class' => 'warning'],
+                    ];
+                    
+                    $status = $statuses[$row->is_active] ?? ['label' => 'Unknown', 'class' => 'light'];
+                    $class = $status['class'];
+                    $text = $status['label'];
+                    
                     return '<span class="badge bg-'.$class.'-subtle text-'.$class.' border border-'.$class.' rounded-pill px-3">'.$text.'</span>';
                 })
                 ->addColumn('manager', function($row) {
@@ -133,7 +162,7 @@ class EmployeeController extends Controller
                 'department_id' => $request->department_id,
                 'designation_id' => $request->designation_id,
                 'gender' => $request->gender ?? 'Male',
-                'is_active' => true,
+                'is_active' => $request->is_active ?? 1,
                 'user_role_id' => 1, // Legacy sync
             ]);
 

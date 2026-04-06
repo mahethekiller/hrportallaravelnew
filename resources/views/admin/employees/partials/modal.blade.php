@@ -33,6 +33,17 @@
                             <input type="password" class="form-control bg-light border-0 py-2 rounded-3" id="password" name="password" placeholder="Min. 6 characters">
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label small fw-semibold text-muted">Account Status <span class="text-danger">*</span></label>
+                            <select class="form-select bg-light border-0 py-2 rounded-3" id="is_active" name="is_active" required>
+                                <option value="1" selected>Active</option>
+                                <option value="2">Terminated</option>
+                                <option value="3">Left</option>
+                                <option value="4">Abscond</option>
+                                <option value="5">Disable</option>
+                                <option value="0">Resigned</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label small fw-semibold text-muted">Assigned System Role <span class="text-danger">*</span></label>
                             <select class="form-select bg-light border-0 py-2 rounded-3" id="role_name" name="role_name" required>
                                 <option value="">-- Select Role --</option>

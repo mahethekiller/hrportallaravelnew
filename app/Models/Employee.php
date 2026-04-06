@@ -132,7 +132,7 @@ class Employee extends Authenticatable
 		'monthly_grade_id' => 'int',
 		'ref_emp_id' => 'int',
 		'rejoin_emp_id' => 'int',
-		'is_active' => 'bool',
+		'is_active' => 'int',
 		'is_logged_in' => 'int',
 		'online_status' => 'int',
 		'created_by' => 'int',

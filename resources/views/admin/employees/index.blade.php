@@ -66,8 +66,12 @@
             <label class="form-label small fw-bold text-muted text-uppercase">Account Status</label>
             <select class="form-select form-select-sm shadow-sm" id="filter_status">
                 <option value="">All Status</option>
-                <option value="1">Active Only</option>
-                <option value="0">Inactive Only</option>
+                <option value="1" selected>Active</option>
+                <option value="2">Terminated</option>
+                <option value="3">Left</option>
+                <option value="4">Abscond</option>
+                <option value="5">Disable</option>
+                <option value="0">Resigned</option>
             </select>
         </div>
         <div class="col-md-2 text-end text-md-start">
@@ -127,6 +131,7 @@
                     d.filter_status = $('#filter_status').val();
                 }
             },
+            order: [[0, 'desc']],
             dom: '<"d-flex justify-content-between align-items-center p-3"<"dt-btn-container"B><"dt-search-container"f>>t<"d-flex justify-content-between align-items-center p-3"ip>',
             buttons: [
                 { extend: 'excel', className: 'btn btn-sm btn-success', text: '<i class="bi bi-file-earmark-excel me-1"></i> Excel' },
@@ -135,8 +140,8 @@
             ],
             columns: [
                 {
-                    data: 'name',
-                    name: 'first_name',
+                    data: 'user_id',
+                    name: 'name_column',
                     render: function(data, type, row) {
                         let avatar = row.profile_picture ? `{{ asset('storage/profiles') }}/${row.profile_picture}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(row.first_name)}&background=random`;
                         return `
@@ -162,8 +167,8 @@
                         `;
                     }
                 },
-                { data: 'organization', name: 'company_name' },
-                { data: 'manager', name: 'manager_id' },
+                { data: 'organization', name: 'organization' },
+                { data: 'manager', name: 'manager' },
                 {
                     data: 'date_of_birth',
                     render: function(data, type, row) {
@@ -219,7 +224,8 @@
     });
 
     function resetFilters() {
-        $('#filter_company, #filter_manager, #filter_status').val('');
+        $('#filter_company, #filter_manager').val('');
+        $('#filter_status').val('1');
         table.draw();
     }
 </script>

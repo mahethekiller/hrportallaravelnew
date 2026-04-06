@@ -66,9 +66,16 @@
                     <div class="glass-card p-4">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h5 class="fw-bold mb-0">Official & Personal Basics</h5>
-                            <div class="form-check form-switch mb-0">
-                                <input class="form-check-input" type="checkbox" name="is_active" value="1" {{ $employee->is_active ? 'checked' : '' }}>
-                                <label class="form-check-label fw-bold small text-primary ms-2">Account Active</label>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-muted text-uppercase">Account Status</label>
+                                <select class="form-select bg-light border-0 py-2 rounded-3 fw-bold text-primary" name="is_active" required>
+                                    <option value="1" {{ $employee->is_active == 1 ? 'selected' : '' }}>Active</option>
+                                    <option value="2" {{ $employee->is_active == 2 ? 'selected' : '' }}>Terminated</option>
+                                    <option value="3" {{ $employee->is_active == 3 ? 'selected' : '' }}>Left</option>
+                                    <option value="4" {{ $employee->is_active == 4 ? 'selected' : '' }}>Abscond</option>
+                                    <option value="5" {{ $employee->is_active == 5 ? 'selected' : '' }}>Disable</option>
+                                    <option value="0" {{ $employee->is_active == 0 ? 'selected' : '' }}>Resigned</option>
+                                </select>
                             </div>
                         </div>
                         <div class="row g-3">
@@ -600,13 +607,7 @@
             </div>
 
             <!-- Global Actions -->
-            <div class="glass-card mt-4 d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center gap-2">
-                    <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" name="is_active" value="1" {{ $employee->is_active ? 'checked' : '' }}>
-                        <label class="form-check-label fw-semibold">Account Active</label>
-                    </div>
-                </div>
+            <div class="glass-card mt-4 d-flex justify-content-end align-items-center">
                 <div>
                     <button type="submit" class="btn btn-primary rounded-pill px-5 shadow" id="globalSaveBtn">
                         <i class="bi bi-check-circle me-1"></i> Save Changes
