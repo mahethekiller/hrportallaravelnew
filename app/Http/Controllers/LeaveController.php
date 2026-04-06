@@ -36,9 +36,12 @@ class LeaveController extends Controller
         $query = LeaveApplication::query()
             ->join('employees', 'leave_applications.employee_id', '=', 'employees.user_id')
             ->join('leave_type', 'leave_applications.leave_type_id', '=', 'leave_type.leave_type_id')
+            ->join('companies', 'leave_applications.company_id', '=', 'companies.company_id')
             ->select([
                 'leave_applications.leave_id',
-                'leave_applications.employee_id',
+                'leave_applications.employee_id as apprentice_id',
+                'employees.employee_id as staff_code',
+                'companies.name as company_name',
                 'leave_applications.from_date',
                 'leave_applications.to_date',
                 'leave_applications.applied_on',
@@ -100,8 +103,9 @@ class LeaveController extends Controller
             })
             ->addColumn('actions', function($row) {
                  // Pass full row data to JS function
-                 $json = htmlspecialchars(json_encode([
+                  $json = htmlspecialchars(json_encode([
                     'leave_id' => $row->leave_id,
+                    'employee_id' => $row->staff_code ?? $row->apprentice_id,
                     'employee_name' => $row->first_name . ' ' . $row->last_name,
                     'leave_type' => $row->type_name,
                     'from_date' => Carbon::parse($row->from_date)->format('d M Y'),

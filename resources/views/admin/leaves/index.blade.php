@@ -12,7 +12,6 @@
         border-radius: 16px;
         transition: all 0.3s ease;
         position: relative;
-        overflow: hidden;
         box-shadow: var(--glass-shadow);
     }
 
@@ -136,7 +135,7 @@
                 <select name="employee_id" class="form-select select2-glass">
                     <option value="">All Team Members</option>
                     @foreach($employees as $emp)
-                        <option value="{{ $emp->user_id }}">{{ $emp->first_name }} {{ $emp->last_name }}</option>
+                        <option value="{{ $emp->user_id }}">{{ $emp->employee_id }} - {{ $emp->first_name }} {{ $emp->last_name }}</option>
                     @endforeach
                 </select>
             </div>
@@ -305,17 +304,20 @@
             columns: [
                 { 
                     data: 'employee_name', 
-                    name: 'employee_name',
+                    name: 'employees.first_name',
                     render: function(data, type, row) {
                         return `
                             <div class="d-flex align-items-center gap-3">
                                 <div class="avatar-initial small">${row.initials}</div>
-                                <div class="fw-bold text-main">${data}</div>
+                                <div>
+                                    <div class="fw-bold text-main">${data}</div>
+                                    <div class="text-muted small">${row.company_name}</div>
+                                </div>
                             </div>
                         `;
                     }
                 },
-                { data: 'type_name', name: 'leave_types.type_name' },
+                { data: 'type_name', name: 'leave_type.type_name' },
                 { 
                     data: 'duration', 
                     name: 'duration', 
@@ -361,8 +363,7 @@
         // Initialize Select2
         $('.select2-glass').select2({
             placeholder: "Filter by employee",
-            allowClear: true,
-            dropdownParent: $('#leaveFilterForm').parent()
+            allowClear: true
         });
 
         // Apply Leave Form
@@ -514,7 +515,7 @@
                 <div class="d-flex align-items-center gap-3 mb-4">
                     <div class="avatar-initial">${item.initials}</div>
                     <div>
-                        <h5 class="mb-0 fw-bold">${item.employee_name}</h5>
+                        <h5 class="mb-0 fw-bold">${item.employee_name} <small class="text-muted ms-2" style="font-size: 0.8rem;">#${item.employee_id}</small></h5>
                         <p class="text-muted mb-0">${item.leave_type}</p>
                     </div>
                 </div>
