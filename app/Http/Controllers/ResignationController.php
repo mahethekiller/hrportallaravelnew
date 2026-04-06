@@ -8,6 +8,8 @@ use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\DB;
 
 class ResignationController extends Controller
 {
@@ -36,58 +38,58 @@ class ResignationController extends Controller
     public function data(Request $request)
     {
         $user = Auth::user();
-        $query = EmployeeResignation::with(['employee', 'manager', 'company'])
-            ->where('show_status', 1)
-            ->orderBy('created_at', 'desc');
+        $query = EmployeeResignation::query()
+            ->join('employees', 'employee_resignations.employee_id', '=', 'employees.user_id')
+            ->leftJoin('companies', 'employee_resignations.company_id', '=', 'companies.company_id')
+            ->select([
+                'employee_resignations.*',
+                'employees.first_name',
+                'employees.last_name',
+                'employees.employee_id as staff_code',
+                'companies.name as company_name'
+            ])
+            ->where('show_status', 1);
 
         // Role-based filtering
         if ($user->can('view_all_resignations')) {
-            // See all resignations
+            // Admins see all
         } elseif ($user->can('view_team_resignations')) {
             // Manager sees their team's resignations + their own
             $query->where(function($q) use ($user) {
-                $q->where('manager_id', $user->user_id)
-                  ->orWhere('employee_id', $user->user_id);
+                $q->where('employee_resignations.manager_id', $user->user_id)
+                  ->orWhere('employee_resignations.employee_id', $user->user_id);
             });
         } else {
             // Regular employee sees only their own
-            $query->where('employee_id', $user->user_id);
+            $query->where('employee_resignations.employee_id', $user->user_id);
         }
 
-        // Filters
+        // Calculate stats for the top cards using the base query
+        $statsData = (clone $query)->get();
+        $stats = [
+            'pending' => $statsData->where('status', 1)->count(),
+            'manager_approved' => $statsData->where('status', 2)->count(),
+            'hr_approved' => $statsData->where('status', 3)->count(),
+            'rejected' => $statsData->where('status', 4)->count(),
+        ];
+
+        // Filters from the table form
         if ($request->employee_id) {
-            $query->where('employee_id', $request->employee_id);
+            $query->where('employee_resignations.employee_id', $request->employee_id);
         }
         if ($request->status && $request->status !== 'all') {
-            $query->where('status', $request->status);
+            $query->where('employee_resignations.status', $request->status);
         }
 
-        $resignations = $query->get()->map(function ($r) {
-            $emp = $r->employee;
-            $noticeDays = $emp ? ($emp->notice_period ?? 0) : 0;
+        $paginated = $query->orderBy('employee_resignations.created_at', 'desc')->paginate(10);
 
-            return [
-                'id' => $r->resignation_id,
-                'employee_name' => $emp ? $emp->first_name . ' ' . $emp->last_name : 'N/A',
-                'employee_id_str' => $emp ? $emp->employee_id : '',
-                'department' => $emp && $emp->department ? $emp->department->department_name : '',
-                'designation' => $emp && $emp->designation ? $emp->designation->designation_name : '',
-                'company' => $r->company ? $r->company->name : '',
-                'notice_date' => $r->notice_date,
-                'resignation_date' => $r->resignation_date,
-                'notice_period' => $noticeDays . ' days',
-                'reason' => $r->reason,
-                'status' => $r->status,
-                'manager_status' => $r->manager_status ?? 'pending',
-                'hr_status' => $r->hr_status ?? 'pending',
-                'manager_comment' => $r->manager_comment,
-                'hr_comment' => $r->hr_comment,
-                'manager_name' => $r->manager ? $r->manager->first_name . ' ' . $r->manager->last_name : 'N/A',
-                'created_at' => $r->created_at ? $r->created_at->format('d M Y') : '',
-            ];
-        });
-
-        return response()->json($resignations);
+        return response()->json([
+            'data' => $paginated->items(),
+            'current_page' => $paginated->currentPage(),
+            'last_page' => $paginated->lastPage(),
+            'total' => $paginated->total(),
+            'stats' => $stats
+        ]);
     }
 
     public function store(Request $request)

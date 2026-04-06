@@ -538,7 +538,7 @@
                 <div class="mb-3">
                     <label class="small text-muted text-uppercase mb-1 d-block">Reason for Leave</label>
                     <div class="p-3 rounded-4 bg-white bg-opacity-5 border border-white border-opacity-10">
-                        ${item.reason}
+                        ${item.reason || 'No reason provided'}
                     </div>
                 </div>
 
@@ -546,7 +546,7 @@
                     <div class="mb-3">
                         <label class="small text-muted text-uppercase mb-1 d-block">Admin Remarks</label>
                         <div class="p-3 rounded-4 bg-white bg-opacity-5 border border-white border-opacity-10">
-                            ${item.remarks || 'No remarks provided.'}
+                            ${item.remarks || 'No remarks provided'}
                         </div>
                     </div>
                 ` : ''}

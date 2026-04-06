@@ -81,6 +81,11 @@
     </div>
 </div>
 
+<!-- Pagination Controls -->
+<div id="paginationControls" class="d-flex justify-content-center align-items-center gap-3 mt-4 mb-5">
+    <!-- Buttons injected via JS -->
+</div>
+
 <!-- Submit Resignation Modal -->
 <div class="modal fade" id="submitModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -166,8 +171,10 @@
         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') }
     });
 
+    let currentPage = 1;
+
     $(document).ready(function() {
-        loadResignations();
+        loadResignations(1);
 
         // Auto-fetch notice period when employee selected
         $('#modal_employee_id').on('change', function() {
@@ -203,51 +210,44 @@
         }
     }
 
-    function loadResignations() {
+    function loadResignations(page = 1) {
+        currentPage = page;
         let params = {
             employee_id: $('#filterEmployee').val() || '',
-            status: $('#filterStatus').val() || 'all'
+            status: $('#filterStatus').val() || 'all',
+            page: page
         };
 
         $('#resignationFeed').html('<div class="text-center py-5 text-muted"><div class="spinner-border text-primary mb-3"></div><p>Loading...</p></div>');
+        $('#paginationControls').empty();
 
-        $.post("{{ route('resignations.data') }}", params, function(data) {
+        $.post("{{ route('resignations.data') }}", params, function(res) {
             // Update stats
-            let pending = data.filter(r => r.status == '1').length;
-            let mgrApproved = data.filter(r => r.status == '2').length;
-            let hrApproved = data.filter(r => r.status == '3').length;
-            let rejected = data.filter(r => r.status == '4').length;
-            $('#statPending').text(pending);
-            $('#statManagerApproved').text(mgrApproved);
-            $('#statHRApproved').text(hrApproved);
-            $('#statRejected').text(rejected);
+            const stats = res.stats;
+            $('#statPending').text(stats.pending);
+            $('#statManagerApproved').text(stats.manager_approved);
+            $('#statHRApproved').text(stats.hr_approved);
+            $('#statRejected').text(stats.rejected);
 
-            if (data.length === 0) {
+            if (res.data.length === 0) {
                 $('#resignationFeed').html('<div class="glass-card text-center py-5"><i class="bi bi-inbox fs-1 text-muted"></i><p class="text-muted mt-2">No resignation requests found.</p></div>');
                 return;
             }
 
             let html = '';
-            data.forEach(r => {
+            res.data.forEach(r => {
                 let statusBadge = getStatusBadge(r.status);
                 let mgrBadge = getApprovalBadge(r.manager_status, 'Manager');
                 let hrBadge = getApprovalBadge(r.hr_status, 'HR');
 
                 let actions = '';
-                @if(Auth::user()->can('approve_resignations_hr') || Auth::user()->can('approve_resignations_manager'))
-                if (r.status == '1' || r.status == '2') {
-                    @can('approve_resignations_hr')
-                    actions += `<button class="btn btn-sm btn-success rounded-pill px-3 me-2" onclick="openApproval(${r.id}, 'approve')"><i class="bi bi-check-lg me-1"></i>Approve</button>`;
-                    actions += `<button class="btn btn-sm btn-danger rounded-pill px-3" onclick="openApproval(${r.id}, 'reject')"><i class="bi bi-x-lg me-1"></i>Reject</button>`;
-                    @endcan
-                    @can('approve_resignations_manager')
-                    if (r.status == '1') {
-                        actions += `<button class="btn btn-sm btn-success rounded-pill px-3 me-2" onclick="openApproval(${r.id}, 'approve')"><i class="bi bi-check-lg me-1"></i>Approve</button>`;
-                        actions += `<button class="btn btn-sm btn-danger rounded-pill px-3" onclick="openApproval(${r.id}, 'reject')"><i class="bi bi-x-lg me-1"></i>Reject</button>`;
-                    }
-                    @endcan
+                if (r.status == '1') {
+                    @if(Auth::user()->can('approve_resignation_manager'))
+                        // Using manager_id check locally if possible, but let's stick to the button logic
+                        actions += `<button class="btn btn-sm btn-success rounded-pill px-3 me-2" onclick="openApproval(${r.resignation_id}, 'approve')"><i class="bi bi-check-lg me-1"></i>Approve</button>`;
+                        actions += `<button class="btn btn-sm btn-danger rounded-pill px-3 me-2" onclick="openApproval(${r.resignation_id}, 'reject')"><i class="bi bi-x-lg me-1"></i>Reject</button>`;
+                    @endif
                 }
-                @endif
 
                 html += `
                 <div class="glass-card mb-3 p-4" style="transition: all 0.3s ease;">
@@ -258,9 +258,8 @@
                                     <i class="bi bi-person-dash fs-5 text-danger"></i>
                                 </div>
                                 <div>
-                                    <div class="fw-bold">${r.employee_name}</div>
-                                    <small class="text-muted">${r.employee_id_str} &bull; ${r.designation}</small><br>
-                                    <small class="text-muted"><i class="bi bi-building me-1"></i>${r.department}</small>
+                                    <div class="fw-bold">${r.first_name} ${r.last_name}</div>
+                                    <small class="text-muted">#${r.staff_code || '---'} &bull; ${r.company_name}</small>
                                 </div>
                             </div>
                         </div>
@@ -268,7 +267,6 @@
                             <div class="small">
                                 <div class="mb-1"><i class="bi bi-calendar-event text-primary me-1"></i><strong>Notice:</strong> ${formatDate(r.notice_date)}</div>
                                 <div class="mb-1"><i class="bi bi-calendar-x text-danger me-1"></i><strong>LWD:</strong> ${formatDate(r.resignation_date)}</div>
-                                <div><i class="bi bi-clock text-muted me-1"></i>${r.notice_period}</div>
                             </div>
                         </div>
                         <div class="col-md-2 text-center">
@@ -280,26 +278,26 @@
                         </div>
                         <div class="col-md-3 text-end">
                             ${actions}
-                            <button class="btn btn-sm btn-light rounded-pill px-3 mt-1" onclick="toggleDetails(${r.id})">
+                            <button class="btn btn-sm btn-light rounded-pill px-3 mt-1" onclick="toggleDetails(${r.resignation_id})">
                                 <i class="bi bi-chevron-down"></i> Details
                             </button>
                         </div>
                     </div>
-                    <div class="row mt-3 d-none" id="details_${r.id}">
+                    <div class="row mt-3 d-none" id="details_${r.resignation_id}">
                         <div class="col-12">
-                            <hr class="my-2">
+                            <hr class="my-2 border-white border-opacity-10">
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="small fw-bold text-muted">Reason</label>
-                                    <p class="small mb-0">${r.reason || 'No reason provided'}</p>
+                                    <label class="small fw-bold text-muted d-block mb-1">Reason</label>
+                                    <div class="small mb-0 text-white-50">${r.reason || 'No reason provided'}</div>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="small fw-bold text-muted">Manager Comment</label>
-                                    <p class="small mb-0">${r.manager_comment || '-'}</p>
+                                    <label class="small fw-bold text-muted d-block mb-1">Manager Comment</label>
+                                    <div class="small mb-0 text-white-50">${r.manager_comment || '-'}</div>
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="small fw-bold text-muted">HR Comment</label>
-                                    <p class="small mb-0">${r.hr_comment || '-'}</p>
+                                    <label class="small fw-bold text-muted d-block mb-1">HR Comment</label>
+                                    <div class="small mb-0 text-white-50">${r.hr_comment || '-'}</div>
                                 </div>
                             </div>
                         </div>
@@ -308,17 +306,32 @@
             });
 
             $('#resignationFeed').html(html);
+            renderPagination(res.current_page, res.last_page);
         });
     }
 
+    function renderPagination(current, last) {
+        if (last <= 1) return;
+        
+        let html = `
+            <button class="btn btn-sm btn-light rounded-pill px-3" ${current === 1 ? 'disabled' : ''} onclick="loadResignations(${current - 1})">
+                <i class="bi bi-chevron-left me-1"></i> Previous
+            </button>
+            <span class="small text-muted fw-bold">Page ${current} of ${last}</span>
+            <button class="btn btn-sm btn-light rounded-pill px-3" ${current === last ? 'disabled' : ''} onclick="loadResignations(${current + 1})">
+                Next <i class="bi bi-chevron-right ms-1"></i>
+            </button>
+        `;
+        $('#paginationControls').html(html);
+    }
+
     function getStatusBadge(status) {
-        switch(status) {
-            case '1': return '<span class="badge bg-warning bg-opacity-10 text-warning px-3 py-2 rounded-pill">Pending</span>';
-            case '2': return '<span class="badge bg-info bg-opacity-10 text-info px-3 py-2 rounded-pill">Manager Approved</span>';
-            case '3': return '<span class="badge bg-success bg-opacity-10 text-success px-3 py-2 rounded-pill">HR Approved</span>';
-            case '4': return '<span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2 rounded-pill">Rejected</span>';
-            default: return '<span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2 rounded-pill">Unknown</span>';
-        }
+        let statusStr = 'Pending';
+        let statusClass = 'warning';
+        if (status == 2) { statusStr = 'Mgr Approved'; statusClass = 'info'; }
+        else if (status == 3) { statusStr = 'HR Approved'; statusClass = 'success'; }
+        else if (status == 4) { statusStr = 'Rejected'; statusClass = 'danger'; }
+        return `<span class="badge bg-${statusClass} bg-opacity-10 text-${statusClass} px-3 py-2 rounded-pill">${statusStr}</span>`;
     }
 
     function getApprovalBadge(status, label) {
@@ -328,7 +341,7 @@
     }
 
     function formatDate(dateStr) {
-        if (!dateStr) return '--';
+        if (!dateStr || dateStr === '---' || dateStr === '--') return '--';
         let d = new Date(dateStr);
         return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
     }
@@ -360,7 +373,7 @@
             data: $('#resignationForm').serialize(),
             success: function(response) {
                 $('#submitModal').modal('hide');
-                loadResignations();
+                loadResignations(1);
                 if(typeof Swal !== 'undefined') {
                     Swal.fire({ icon: 'success', title: 'Resignation Submitted', text: response.success, timer: 3000, showConfirmButton: false });
                 }
@@ -409,7 +422,7 @@
             data: { action: action, comment: comment },
             success: function(response) {
                 $('#approvalModal').modal('hide');
-                loadResignations();
+                loadResignations(currentPage);
                 if(typeof Swal !== 'undefined') {
                     Swal.fire({ icon: 'success', title: 'Success', text: response.success, timer: 2000, showConfirmButton: false });
                 }
