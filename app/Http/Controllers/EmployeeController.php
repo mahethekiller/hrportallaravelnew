@@ -75,7 +75,7 @@ class EmployeeController extends Controller
                 ->filterColumn('manager', function($query, $keyword) {
                     $query->where(DB::raw("CONCAT(managers.first_name, ' ', managers.last_name)"), 'like', "%{$keyword}%");
                 })
-                ->orderColumn('name_column', 'employees.first_name $1')
+                ->orderColumn('name_column', 'employees.user_id $1')
                 ->orderColumn('organization', 'companies.name $1')
                 ->orderColumn('manager', 'managers.first_name $1')
                 ->addIndexColumn()
