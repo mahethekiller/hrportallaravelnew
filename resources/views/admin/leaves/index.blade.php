@@ -158,12 +158,24 @@
         </form>
     </div>
 
-    <!-- Timeline Grid -->
-    <div id="leavesContainer" class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
-        <!-- JS Populated -->
-        <div class="col-12 empty-state">
-            <div class="spinner-border text-primary mb-3"></div>
-            <p>Gathering leave requests...</p>
+    <!-- Leaves Table -->
+    <div class="glass-card p-0 overflow-hidden border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 w-100" id="leavesTable">
+                <thead class="bg-light bg-opacity-10 text-muted small text-uppercase">
+                    <tr>
+                        <th class="px-4 py-3 border-0">Employee</th>
+                        <th class="py-3 border-0">Leave Type</th>
+                        <th class="py-3 border-0 text-center">Duration</th>
+                        <th class="py-3 border-0">Period</th>
+                        <th class="py-3 border-0">Applied On</th>
+                        <th class="py-3 border-0 text-center">Status</th>
+                        <th class="py-3 border-0 text-end px-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -272,17 +284,85 @@
 
 @push('scripts')
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('Leave Dashboard: DOMContentLoaded');
-        refreshLeaves();
-    });
+    let table;
 
     $(document).ready(function() {
         console.log('Leave Dashboard: $(document).ready');
-        // Initializing Select2 if needed
+        
+        // Initialize DataTables
+        table = $('#leavesTable').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: "{{ route('leaves.data') }}",
+                type: 'POST',
+                data: function(d) {
+                    d._token = '{{ csrf_token() }}';
+                    d.employee_id = $('select[name="employee_id"]').val();
+                    d.status = $('select[name="status"]').val();
+                }
+            },
+            columns: [
+                { 
+                    data: 'employee_name', 
+                    name: 'employee_name',
+                    render: function(data, type, row) {
+                        return `
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="avatar-initial small">${row.initials}</div>
+                                <div class="fw-bold text-main">${data}</div>
+                            </div>
+                        `;
+                    }
+                },
+                { data: 'type_name', name: 'leave_types.type_name' },
+                { 
+                    data: 'duration', 
+                    name: 'duration', 
+                    orderable: false, 
+                    searchable: false,
+                    className: 'text-center'
+                },
+                { 
+                    data: 'from_date', 
+                    name: 'leave_applications.from_date',
+                    render: function(data, type, row) {
+                        return `<div class="small fw-semibold">${data} <i class="bi bi-arrow-right mx-1 text-muted"></i> ${row.to_date}</div>`;
+                    }
+                },
+                { data: 'applied_on', name: 'leave_applications.applied_on' },
+                { 
+                    data: 'status_label', 
+                    name: 'leave_applications.status', 
+                    searchable: false,
+                    className: 'text-center'
+                },
+                { 
+                    data: 'actions', 
+                    name: 'actions', 
+                    orderable: false, 
+                    searchable: false,
+                    className: 'text-end px-4'
+                }
+            ],
+            order: [[4, 'desc']], // Sort by Applied On desc
+            dom: '<"d-flex justify-content-between align-items-center p-3"<"dt-btn-container"B><"dt-search-container"f>>t<"d-flex justify-content-between align-items-center p-3"ip>',
+            buttons: [
+                { extend: 'excel', className: 'btn btn-sm btn-success rounded-pill px-3', text: '<i class="bi bi-file-earmark-excel me-1"></i> Excel' },
+                { extend: 'pdf', className: 'btn btn-sm btn-danger rounded-pill px-3', text: '<i class="bi bi-file-earmark-pdf me-1"></i> PDF' }
+            ],
+            language: {
+                searchPlaceholder: "Search requests...",
+                search: ""
+            },
+            pageLength: 10
+        });
+
+        // Initialize Select2
         $('.select2-glass').select2({
             placeholder: "Filter by employee",
-            allowClear: true
+            allowClear: true,
+            dropdownParent: $('#leaveFilterForm').parent()
         });
 
         // Apply Leave Form
@@ -296,7 +376,7 @@
                     Swal.fire('Success!', res.message, 'success');
                     $('#applyLeaveModal').modal('hide');
                     $('#applyLeaveForm')[0].reset();
-                    refreshLeaves();
+                    table.ajax.reload();
                 })
                 .fail(function(xhr) {
                     Swal.fire('Error', xhr.responseJSON.message || 'Something went wrong', 'error');
@@ -306,24 +386,9 @@
     });
 
     function refreshLeaves() {
-        console.log('refreshLeaves: Fetching data...');
-        const container = $('#leavesContainer');
-        container.html(`
-            <div class="col-12 empty-state">
-                <div class="spinner-border text-primary mb-3"></div>
-                <p>Refreshing requests...</p>
-            </div>
-        `);
-
-        $.post("{{ route('leaves.data') }}", $('#leaveFilterForm').serialize() + '&_token={{ csrf_token() }}')
-            .done(function(res) {
-                console.log('refreshLeaves: Data received', res);
-                renderLeaves(res.data);
-            })
-            .fail(function(xhr) {
-                console.error('refreshLeaves: Error fetching data', xhr);
-                container.html('<div class="col-12 empty-state text-danger"><i class="bi bi-exclamation-triangle h1 d-block mb-3"></i><p>Failed to load leave requests. Please try again.</p></div>');
-            });
+        if (table) {
+            table.ajax.reload();
+        }
     }
 
     // Leave Types Management Logic
@@ -415,61 +480,7 @@
     }
     @endcan
 
-    function renderLeaves(data) {
-        const container = $('#leavesContainer');
-        container.empty();
 
-        if (data.length === 0) {
-            container.html('<div class="col-12 empty-state"><i class="bi bi-emoji-neutral h1 d-block mb-3"></i><p>No leave records found</p></div>');
-            return;
-        }
-
-        data.forEach(item => {
-            const card = `
-                <div class="col">
-                    <div class="leave-card status-${item.status.toLowerCase()} p-3 h-100" onclick="showLeaveDetails(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                        <div class="d-flex align-items-center gap-3 mb-3">
-                            <div class="avatar-initial">${item.initials}</div>
-                            <div class="flex-grow-1 overflow-hidden">
-                                <h6 class="mb-0 fw-bold text-truncate">${item.employee_name}</h6>
-                                <small class="text-muted">${item.leave_type}</small>
-                            </div>
-                            <span class="status-badge bg-${item.status_class}-subtle text-${item.status_class}">
-                                ${item.status}
-                            </span>
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="date-box">
-                                <span class="month">${item.from_date.split(' ')[1]}</span>
-                                <span class="day">${item.from_date.split(' ')[0]}</span>
-                            </div>
-                            <div class="text-muted small">
-                                <i class="bi bi-arrow-right"></i>
-                                <span class="d-block">${item.duration}</span>
-                            </div>
-                            <div class="date-box">
-                                <span class="month">${item.to_date.split(' ')[1]}</span>
-                                <span class="day">${item.to_date.split(' ')[0]}</span>
-                            </div>
-                        </div>
-
-                        <div class="mt-auto">
-                            <p class="small text-muted mb-0 line-clamp-2" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
-                                ${item.reason}
-                            </p>
-                            <hr class="my-2 opacity-5">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <small class="text-muted" style="font-size: 0.65rem;">Applied: ${item.applied_on}</small>
-                                <button class="btn btn-sm btn-link text-primary p-0 text-decoration-none small">View Details</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            container.append(card);
-        });
-    }
 
     function showLeaveDetails(item) {
         let actionButtons = '';

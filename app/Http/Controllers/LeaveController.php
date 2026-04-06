@@ -7,6 +7,8 @@ use App\Models\LeaveType;
 use App\Models\Employee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\Facades\DataTables;
 use Carbon\Carbon;
 
 class LeaveController extends Controller
@@ -30,56 +32,92 @@ class LeaveController extends Controller
     public function data(Request $request)
     {
         $user = Auth::user();
-        $query = LeaveApplication::with(['employee', 'leaveType']);
+
+        $query = LeaveApplication::query()
+            ->join('employees', 'leave_applications.employee_id', '=', 'employees.user_id')
+            ->join('leave_type', 'leave_applications.leave_type_id', '=', 'leave_type.leave_type_id')
+            ->select([
+                'leave_applications.leave_id',
+                'leave_applications.employee_id',
+                'leave_applications.from_date',
+                'leave_applications.to_date',
+                'leave_applications.applied_on',
+                'leave_applications.status',
+                'leave_applications.reason',
+                'leave_applications.remarks',
+                'employees.first_name',
+                'employees.last_name',
+                'leave_type.type_name'
+            ]);
 
         // Role-based filtering
         if ($user->can('view_all_leaves')) {
             // Admins see all
         } elseif ($user->can('view_team_leaves')) {
-            $query->whereHas('employee', function($q) use ($user) {
-                $q->where('manager_id', $user->user_id);
-            });
+            $query->where('employees.manager_id', $user->user_id);
         } else {
-            $query->where('employee_id', $user->user_id);
+            $query->where('leave_applications.employee_id', $user->user_id);
         }
 
-        // Filters
+        // Filters from the form
         if ($request->employee_id) {
-            $query->where('employee_id', $request->employee_id);
+            $query->where('leave_applications.employee_id', $request->employee_id);
         }
         if ($request->status) {
-            $query->where('status', $request->status);
+            $query->where('leave_applications.status', $request->status);
         }
 
-        $leaves = $query->orderBy('applied_on', 'desc')->get();
-
-        $data = $leaves->map(function($leave) {
-            $statusStr = 'Pending';
-            $statusClass = 'warning';
-            if ($leave->status == 2) { $statusStr = 'Approved'; $statusClass = 'success'; }
-            elseif ($leave->status == 3) { $statusStr = 'Rejected'; $statusClass = 'danger'; }
-
-            $from = Carbon::parse($leave->from_date);
-            $to = Carbon::parse($leave->to_date);
-            $duration = $from->diffInDays($to) + 1;
-
-            return [
-                'leave_id' => $leave->leave_id,
-                'employee_name' => ($leave->employee->first_name ?? 'Unknown') . ' ' . ($leave->employee->last_name ?? ''),
-                'leave_type' => $leave->leaveType->type_name ?? 'N/A',
-                'from_date' => $from->format('d M Y'),
-                'to_date' => $to->format('d M Y'),
-                'duration' => $duration . ' Days',
-                'applied_on' => Carbon::parse($leave->applied_on)->format('d M Y'),
-                'status' => $statusStr,
-                'status_class' => $statusClass,
-                'reason' => $leave->reason,
-                'remarks' => $leave->remarks,
-                'initials' => strtoupper(substr($leave->employee->first_name ?? 'U', 0, 1) . substr($leave->employee->last_name ?? 'N', 0, 1)),
-            ];
-        });
-
-        return response()->json(['data' => $data]);
+        return DataTables::of($query)
+            ->filterColumn('employee_name', function($q, $keyword) {
+                $q->whereRaw("CONCAT(employees.first_name, ' ', employees.last_name) like ?", ["%{$keyword}%"]);
+            })
+            ->addColumn('employee_name', function($row) {
+                return $row->first_name . ' ' . $row->last_name;
+            })
+            ->addColumn('initials', function($row) {
+                 return strtoupper(substr($row->first_name ?? 'U', 0, 1) . substr($row->last_name ?? 'N', 0, 1));
+            })
+            ->addColumn('duration', function($row) {
+                $from = Carbon::parse($row->from_date);
+                $to = Carbon::parse($row->to_date);
+                return ($from->diffInDays($to) + 1) . ' Days';
+            })
+            ->editColumn('from_date', function($row) {
+                return Carbon::parse($row->from_date)->format('d M Y');
+            })
+            ->editColumn('to_date', function($row) {
+                return Carbon::parse($row->to_date)->format('d M Y');
+            })
+            ->editColumn('applied_on', function($row) {
+                return Carbon::parse($row->applied_on)->format('d M Y');
+            })
+            ->addColumn('status_label', function($row) {
+                $statusStr = 'Pending';
+                $statusClass = 'warning';
+                if ($row->status == 2) { $statusStr = 'Approved'; $statusClass = 'success'; }
+                elseif ($row->status == 3) { $statusStr = 'Rejected'; $statusClass = 'danger'; }
+                return '<span class="status-badge bg-'.$statusClass.'-subtle text-'.$statusClass.'">'.$statusStr.'</span>';
+            })
+            ->addColumn('actions', function($row) {
+                 // Pass full row data to JS function
+                 $json = htmlspecialchars(json_encode([
+                    'leave_id' => $row->leave_id,
+                    'employee_name' => $row->first_name . ' ' . $row->last_name,
+                    'leave_type' => $row->type_name,
+                    'from_date' => Carbon::parse($row->from_date)->format('d M Y'),
+                    'to_date' => Carbon::parse($row->to_date)->format('d M Y'),
+                    'duration' => (Carbon::parse($row->from_date)->diffInDays(Carbon::parse($row->to_date)) + 1) . ' Days',
+                    'applied_on' => Carbon::parse($row->applied_on)->format('d M Y'),
+                    'status' => $row->status == 2 ? 'Approved' : ($row->status == 3 ? 'Rejected' : 'Pending'),
+                    'status_class' => $row->status == 2 ? 'success' : ($row->status == 3 ? 'danger' : 'warning'),
+                    'reason' => $row->reason,
+                    'remarks' => $row->remarks,
+                    'initials' => strtoupper(substr($row->first_name ?? 'U', 0, 1) . substr($row->last_name ?? 'N', 0, 1)),
+                 ]), ENT_QUOTES, 'UTF-8');
+                 return '<button class="btn btn-sm btn-link text-primary p-0 text-decoration-none small" onclick="showLeaveDetails('.$json.')">View Details</button>';
+            })
+            ->rawColumns(['status_label', 'actions'])
+            ->make(true);
     }
 
     public function store(Request $request)
