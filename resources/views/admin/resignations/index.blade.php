@@ -356,10 +356,21 @@
 
     function cleanHTML(str) {
         if (!str) return '';
-        // Unescape backslashes and double quotes from legacy double-escaping
+        
+        // 1. Unescape backslashes and quotes from legacay double-escaping
         let cleaned = str.replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\\\/g, '\\');
-        // Handle weird style escaping cases if they still exist
-        cleaned = cleaned.replace(/\\&quot;/g, '"');
+        cleaned = cleaned.replace(/\\&quot;/g, '"').replace(/&quot;/g, '"');
+
+        // 2. Deep clean: If the string still has escaped entities like &lt;p&gt;, decode them
+        // We use a temporary div to decode HTML entities
+        const doc = new DOMParser().parseFromString(cleaned, 'text/html');
+        let decoded = doc.documentElement.textContent;
+        
+        // If the decoded content lacks tags but the original had them as literal text,
+        // we might prefer the cleaned version to be rendered as HTML.
+        // Actually, if we're putting this into .innerHTML, we want the tags.
+        
+        // Based on common "mangled" output, the slashes are the biggest culprit.
         return cleaned;
     }
 
