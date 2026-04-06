@@ -249,6 +249,10 @@
                     @endif
                 }
 
+                let reason = cleanHTML(r.reason);
+                let managerComment = cleanHTML(r.manager_comment);
+                let hrComment = cleanHTML(r.hr_comment);
+
                 html += `
                 <div class="glass-card mb-3 p-4" style="transition: all 0.3s ease;">
                     <div class="row align-items-center">
@@ -289,15 +293,15 @@
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="small fw-bold text-muted d-block mb-1">Reason</label>
-                                    <div class="small mb-0 text-white-50">${r.reason || 'No reason provided'}</div>
+                                    <div class="small mb-0 text-white-50">${reason || 'No reason provided'}</div>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="small fw-bold text-muted d-block mb-1">Manager Comment</label>
-                                    <div class="small mb-0 text-white-50">${r.manager_comment || '-'}</div>
+                                    <div class="small mb-0 text-white-50">${managerComment || '-'}</div>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="small fw-bold text-muted d-block mb-1">HR Comment</label>
-                                    <div class="small mb-0 text-white-50">${r.hr_comment || '-'}</div>
+                                    <div class="small mb-0 text-white-50">${hrComment || '-'}</div>
                                 </div>
                             </div>
                         </div>
@@ -348,6 +352,15 @@
 
     function toggleDetails(id) {
         $(`#details_${id}`).toggleClass('d-none');
+    }
+
+    function cleanHTML(str) {
+        if (!str) return '';
+        // Unescape backslashes and double quotes from legacy double-escaping
+        let cleaned = str.replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\\\/g, '\\');
+        // Handle weird style escaping cases if they still exist
+        cleaned = cleaned.replace(/\\&quot;/g, '"');
+        return cleaned;
     }
 
     function openSubmitModal() {
